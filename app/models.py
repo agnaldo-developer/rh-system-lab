@@ -13,3 +13,23 @@ class Department(Base):
         unique=True,
         nullable=False,
     )
+
+class Employee(Base):
+    __tablename__ = "employees"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    name: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(150),
+        unique=True,
+        nullable=False,
+    )
+
+    department_id: Mapped[int] = mapped_column(
+        nullable=False,
+    )

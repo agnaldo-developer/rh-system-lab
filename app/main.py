@@ -6,9 +6,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine
-from app.models import Department
-from app.schemas import DepartmentCreate, DepartmentResponse
-
+from app.models import Department, Employee
+from app.schemas import (
+    DepartmentCreate,
+    DepartmentResponse,
+    EmployeeCreate,
+    EmployeeResponse,
+)
 
 app = FastAPI(
     title="RH System API",
@@ -90,4 +94,52 @@ def create_department(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Department already exists",
+        )
+
+@app.get(
+    "/employees",
+    response_model=list[EmployeeResponse],
+)
+def list_employees(
+    db: Session = Depends(get_db),
+) -> list[Employee]:
+    statement = select(Employee).order_by(Employee.id)
+
+    return list(db.scalars(statement).all())
+
+
+@app.post(
+    "/employees",
+    response_model=EmployeeResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_employee(
+    payload: EmployeeCreate,
+    db: Session = Depends(get_db),
+) -> Employee:
+    employee = Employee(
+        name=payload.name.strip(),
+        email=payload.email.strip().lower(),
+        department_id=payload.department_id,
+    )
+
+    if not employee.name or not employee.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name and email are required",
+        )
+
+    db.add(employee)
+
+    try:
+        db.commit()
+        db.refresh(employee)
+        return employee
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Employee email already exists",
         )
