@@ -1,25 +1,12 @@
 # RH System Lab
 
-Laboratório DevOps com FastAPI, PostgreSQL e Adminer executados em Docker Compose.
+## Objetivo
 
-## Arquitetura
+Projeto utilizado para estudo de DevOps, Cloud Computing e Platform Engineering.
 
-- FastAPI: porta 8000
-- Adminer: porta 8081
-- PostgreSQL: acesso somente pela rede interna Docker
-- Rede Docker: rh_network
-- Volume persistente: rh_postgres_data
+## Tecnologias
 
-## Subir o ambiente
-
-```bash
-docker compose up -d --build
-
-
-## Projeto RH System
-
-Tecnologias utilizadas:
-
+- Python
 - FastAPI
 - PostgreSQL
 - Docker
@@ -27,6 +14,32 @@ Tecnologias utilizadas:
 - Git
 - GitHub
 
-Objetivo:
+## Estrutura
 
-Construir um laboratório completo para estudos de DevOps, Cloud e Kubernetes.
+```text
+app/
+ansible/
+terraform/
+jenkins/
+kubernetes/
+monitoring/
+docs/
+scripts/
+```
+
+## Roadmap
+
+- [x] Docker
+- [x] Git
+- [ ] Ansible
+- [ ] Terraform
+- [ ] Jenkins
+- [ ] Kubernetes
+- [ ] Observabilidade
+- [ ] Azure
+- [ ] OCI
+- [ ] VMware
+
+## Autor
+
+Agnaldo Silva
