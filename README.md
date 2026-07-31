@@ -14,3 +14,19 @@ Laboratório DevOps com FastAPI, PostgreSQL e Adminer executados em Docker Compo
 
 ```bash
 docker compose up -d --build
+
+
+## Projeto RH System
+
+Tecnologias utilizadas:
+
+- FastAPI
+- PostgreSQL
+- Docker
+- Docker Compose
+- Git
+- GitHub
+
+Objetivo:
+
+Construir um laboratório completo para estudos de DevOps, Cloud e Kubernetes.
