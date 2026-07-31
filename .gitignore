@@ -1,0 +1,25 @@
+# Credenciais e variáveis locais
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Backups
+backups/
+volume-backups/
+*.sql
+*.tar
+*.tar.gz
+
+# Logs
+*.log
+
+# Editores e sistema
+.vscode/
+.idea/
+.DS_Store
