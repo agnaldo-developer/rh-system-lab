@@ -1,25 +1,29 @@
 import os
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg://rh_admin:LabDevOps2026@postgres:5432/rh_system",
+    "postgresql+psycopg://rh_user:rh_password@postgres:5432/rh_system",
 )
+
+connect_args: dict[str, object] = {}
+
+if DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
+    connect_args=connect_args,
 )
 
 SessionLocal = sessionmaker(
-    bind=engine,
     autocommit=False,
     autoflush=False,
+    bind=engine,
 )
 
+Base = declarative_base()
 
-class Base(DeclarativeBase):
-    pass
