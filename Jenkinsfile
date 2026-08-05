@@ -381,6 +381,8 @@ stage('Checkout Git') {
                 docker run -d \
                 --name "${CONTAINER_NAME}" \
                 --publish "127.0.0.1:${TEST_PORT}:8000" \
+                --env APP_NAME="RH System API" \
+                --env APP_ENV="test" \
                 --env DATABASE_URL="sqlite:////tmp/rh-system-test.db" \
                 "rh-system-api:${BUILD_NUMBER}"
 
