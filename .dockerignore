@@ -11,6 +11,5 @@ htmlcov
 .env
 *.log
 
-tests
 README.md
 .env.docker

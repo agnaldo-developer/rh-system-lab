@@ -21,6 +21,27 @@ services:
     networks:
       - rh-system-network
 
+  test-database:
+    image: postgres:16
+    container_name: rh-system-test-database
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: rh_system_test
+      POSTGRES_USER: rh_test
+      POSTGRES_PASSWORD: rh_test_password
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U rh_test -d rh_system_test
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - rh-system-network
+
   migrations:
     build:
       context: .
@@ -39,6 +60,33 @@ services:
 
     depends_on:
       database:
+        condition: service_healthy
+
+    networks:
+      - rh-system-network
+
+    restart: "no"
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: rh-system:0.1.0
+    container_name: rh-system-tests
+
+    environment:
+      APP_NAME: RH System API Test
+      APP_ENV: test
+      DATABASE_URL: >-
+        postgresql+psycopg://rh_test:rh_test_password@test-database:5432/rh_system_test
+
+    command:
+      - pytest
+      - -v
+
+    depends_on:
+      test-database:
         condition: service_healthy
 
     networks:

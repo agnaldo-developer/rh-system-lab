@@ -13,6 +13,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY alembic.ini .
 COPY migrations ./migrations
 COPY app ./app
+COPY tests ./tests
+COPY pytest.ini .
 
 EXPOSE 8000
 
