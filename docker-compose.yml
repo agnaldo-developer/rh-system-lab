@@ -21,6 +21,31 @@ services:
     networks:
       - rh-system-network
 
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: rh-system:0.1.0
+    container_name: rh-system-migrations
+
+    env_file:
+      - .env.docker
+
+    command:
+      - alembic
+      - upgrade
+      - head
+
+    depends_on:
+      database:
+        condition: service_healthy
+
+    networks:
+      - rh-system-network
+
+    restart: "no"
+
   api:
     build:
       context: .
@@ -39,14 +64,14 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
 
     networks:
       - rh-system-network
 
-
 volumes:
   postgres_data:
-
 
 networks:
   rh-system-network:
