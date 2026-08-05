@@ -24,12 +24,22 @@ pipeline {
             }
         }
 
-        stage('Checkout Git') {
-            steps {
-                git branch: 'main',
-                url: 'https://github.com/agnaldo-developer/rh-system-lab'
-            }
-        }
+stage('Checkout Git') {
+    steps {
+        checkout scm
+
+        sh '''
+            echo "Branch atual:"
+            git branch --show-current
+
+            echo "Último commit:"
+            git log -1 --oneline
+
+            echo "Origem configurada:"
+            git remote -v
+        '''
+    }
+}
         stage('Validar Checkout') {
             steps {
                 sh '''
