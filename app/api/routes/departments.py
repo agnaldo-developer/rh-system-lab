@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from app.core.dependencies import get_current_user, require_roles
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -42,6 +43,9 @@ def get_department_or_404(
     "",
     response_model=DepartmentResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[
+    Depends(require_roles("admin", "rh")),
+],
 )
 def create_department(
     department_data: DepartmentCreate,
@@ -53,6 +57,8 @@ def create_department(
     )
 
     db.add(department)
+
+    
 
     try:
         db.commit()
@@ -72,6 +78,9 @@ def create_department(
 @router.get(
     "",
     response_model=list[DepartmentResponse],
+    dependencies=[
+    Depends(get_current_user),
+],
 )
 def list_departments(
     db: DatabaseSession,
@@ -86,6 +95,9 @@ def list_departments(
 @router.get(
     "/{department_id}",
     response_model=DepartmentResponse,
+    dependencies=[
+    Depends(get_current_user),
+],
 )
 def get_department(
     department_id: int,
@@ -97,6 +109,9 @@ def get_department(
 @router.patch(
     "/{department_id}",
     response_model=DepartmentResponse,
+    dependencies=[
+    Depends(require_roles("admin", "rh")),
+],
 )
 def update_department(
     department_id: int,
@@ -128,6 +143,9 @@ def update_department(
 @router.delete(
     "/{department_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+    Depends(require_roles("admin", "rh")),
+],
 )
 def delete_department(
     department_id: int,

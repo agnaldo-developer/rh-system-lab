@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from app.core.dependencies import get_current_user, require_roles
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -56,6 +57,9 @@ def validate_department(
     "",
     response_model=EmployeeResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(require_roles("admin", "rh")),
+    ],
 )
 def create_employee(
     employee_data: EmployeeCreate,
@@ -94,6 +98,9 @@ def create_employee(
 @router.get(
     "",
     response_model=list[EmployeeResponse],
+    dependencies=[
+        Depends(get_current_user),
+    ],
 )
 def list_employees(
     db: DatabaseSession,
@@ -111,6 +118,9 @@ def list_employees(
 @router.get(
     "/{employee_id}",
     response_model=EmployeeResponse,
+    dependencies=[
+        Depends(get_current_user),
+    ],
 )
 def get_employee(
     employee_id: int,
@@ -122,7 +132,11 @@ def get_employee(
 @router.patch(
     "/{employee_id}",
     response_model=EmployeeResponse,
+    dependencies=[
+        Depends(require_roles("admin", "rh")),
+    ]
 )
+
 def update_employee(
     employee_id: int,
     employee_data: EmployeeUpdate,
@@ -156,6 +170,9 @@ def update_employee(
 @router.delete(
     "/{employee_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        Depends(require_roles("admin", "rh")),
+    ],
 )
 def delete_employee(
     employee_id: int,
