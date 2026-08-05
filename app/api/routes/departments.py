@@ -1,12 +1,12 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from app.core.dependencies import get_current_user, require_roles
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import asc, desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_roles
 from app.models.department import Department
 from app.schemas.department import (
     DepartmentCreate,
@@ -55,11 +55,7 @@ def create_department(
         name=department_data.name,
         description=department_data.description,
     )
-
     db.add(department)
-
-    
-
     try:
         db.commit()
     except IntegrityError:
@@ -79,13 +75,69 @@ def create_department(
     "",
     response_model=list[DepartmentResponse],
     dependencies=[
-    Depends(get_current_user),
-],
+        Depends(get_current_user),
+    ],
 )
 def list_departments(
     db: DatabaseSession,
+    skip: Annotated[
+        int,
+        Query(
+            ge=0,
+            description="Quantidade de registros ignorados.",
+        ),
+    ] = 0,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Quantidade máxima de registros retornados.",
+        ),
+    ] = 20,
+    name: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=100,
+            description="Filtro parcial pelo nome do departamento.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Literal["id", "name", "created_at", "updated_at"],
+        Query(
+            description="Campo utilizado na ordenação.",
+        ),
+    ] = "name",
+    order: Annotated[
+        Literal["asc", "desc"],
+        Query(
+            description="Direção da ordenação.",
+        ),
+    ] = "asc",
 ) -> list[Department]:
-    statement = select(Department).order_by(Department.name)
+    statement = select(Department)
+
+    if name is not None:
+        statement = statement.where(
+            Department.name.ilike(f"%{name}%")
+        )
+
+    sort_columns = {
+        "id": Department.id,
+        "name": Department.name,
+        "created_at": Department.created_at,
+        "updated_at": Department.updated_at,
+    }
+
+    sort_column = sort_columns[sort_by]
+
+    if order == "desc":
+        statement = statement.order_by(desc(sort_column))
+    else:
+        statement = statement.order_by(asc(sort_column))
+
+    statement = statement.offset(skip).limit(limit)
 
     departments = db.scalars(statement).all()
 
@@ -110,7 +162,7 @@ def get_department(
     "/{department_id}",
     response_model=DepartmentResponse,
     dependencies=[
-    Depends(require_roles("admin", "rh")),
+        Depends(require_roles("admin", "rh")),
 ],
 )
 def update_department(
