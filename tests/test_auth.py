@@ -64,7 +64,7 @@ def test_login_with_wrong_password(
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == (
+    assert response.json()["error"]["message"] == (
         "Invalid email or password."
     )
 
@@ -81,7 +81,7 @@ def test_login_with_unknown_user(
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == (
+    assert response.json()["error"]["message"] == (
         "Invalid email or password."
     )
 
@@ -102,7 +102,7 @@ def test_inactive_user_cannot_login(
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Inactive user."
+    assert response.json()["error"]["message"] == "Inactive user."
 
 
 def test_users_me_requires_authentication(
@@ -124,7 +124,7 @@ def test_users_me_with_invalid_token(
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == (
+    assert response.json()["error"]["message"] == (
         "Invalid or expired token."
     )
 

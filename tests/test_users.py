@@ -218,4 +218,6 @@ def test_deactivated_user_cannot_access_me(
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Inactive user."
+    assert response.json()["error"]["message"] == (
+    "Inactive user."
+)
