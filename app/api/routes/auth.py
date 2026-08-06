@@ -9,13 +9,37 @@ from app.services.user_service import get_user_by_email
 
 router = APIRouter(
     prefix="/api/v1/auth",
-    tags=["auth"],
+    tags=["Authentication"],
 )
 
 
 @router.post(
     "/login",
+    summary="Authenticate user",
+    description="""
+Authenticates a user using email and password.
+
+Returns a JWT access token that must be sent in the Authorization header.
+
+Example:
+
+Authorization: Bearer <access_token>
+""",
     response_model=TokenResponse,
+    responses={
+        200: {
+            "description": "Authentication successful.",
+        },
+        401: {
+            "description": "Invalid email or password.",
+        },
+        403: {
+            "description": "Inactive user.",
+        },
+        422: {
+            "description": "Validation error.",
+        },
+    },
 )
 def login(
     credentials: LoginRequest,

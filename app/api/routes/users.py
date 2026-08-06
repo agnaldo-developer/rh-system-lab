@@ -17,7 +17,7 @@ from app.services.user_service import (
 
 router = APIRouter(
     prefix="/api/v1/users",
-    tags=["users"],
+    tags=["Users"],
 )
 def get_user_or_404(
     db: Session,
@@ -38,7 +38,19 @@ def get_user_or_404(
 
 @router.get(
     "/me",
+    summary="Get authenticated user",
+    description="""
+Returns the authenticated user's profile based on the JWT token.
+""",
     response_model=UserRead,
+    responses={
+        200: {
+            "description": "Authenticated user returned successfully.",
+        },
+        401: {
+            "description": "Authentication required.",
+        },
+    },
 )
 def read_current_user(
     current_user: User = Depends(get_current_user),

@@ -46,8 +46,37 @@ DatabaseSession = Annotated[Session, Depends(get_db)]
 
 @router.post(
     "",
+    summary="Create employee",
+    description="""
+Creates a new employee associated with an existing department.
+
+Allowed roles:
+
+- `admin`
+- `rh`
+""",
     response_model=EmployeeResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        201: {
+            "description": "Employee created successfully.",
+        },
+        401: {
+            "description": "Authentication required.",
+        },
+        403: {
+            "description": "Insufficient permissions.",
+        },
+        404: {
+            "description": "Department not found.",
+        },
+        409: {
+            "description": "Employee email or document already exists.",
+        },
+        422: {
+            "description": "Validation error.",
+        },
+    },
     dependencies=[
         Depends(require_roles("admin", "rh")),
     ],
@@ -64,7 +93,32 @@ def create_employee(
 
 @router.get(
     "",
+    summary="List employees",
+    description="""
+Returns a paginated list of employees.
+
+Supports filtering by:
+
+- first name;
+- last name;
+- email;
+- department;
+- active status.
+
+Also supports custom sorting.
+""",
     response_model=list[EmployeeResponse],
+    responses={
+        200: {
+            "description": "Employees returned successfully.",
+        },
+        401: {
+            "description": "Authentication required.",
+        },
+        422: {
+            "description": "Invalid query parameter.",
+        },
+    },
     dependencies=[
         Depends(get_current_user),
     ],
@@ -161,7 +215,20 @@ def list_employees(
 
 @router.get(
     "/{employee_id}",
+    summary="Get employee by ID",
+    description="Returns an employee using its unique identifier.",
     response_model=EmployeeResponse,
+    responses={
+        200: {
+            "description": "Employee returned successfully.",
+        },
+        401: {
+            "description": "Authentication required.",
+        },
+        404: {
+            "description": "Employee not found.",
+        },
+    },
     dependencies=[
         Depends(get_current_user),
     ],
@@ -178,7 +245,36 @@ def get_employee(
 
 @router.patch(
     "/{employee_id}",
+    summary="Update employee",
+    description="""
+Partially updates an employee.
+
+Allowed roles:
+
+- `admin`
+- `rh`
+""",
     response_model=EmployeeResponse,
+    responses={
+        200: {
+            "description": "Employee updated successfully.",
+        },
+        401: {
+            "description": "Authentication required.",
+        },
+        403: {
+            "description": "Insufficient permissions.",
+        },
+        404: {
+            "description": "Employee or department not found.",
+        },
+        409: {
+            "description": "Employee email or document already exists.",
+        },
+        422: {
+            "description": "Validation error.",
+        },
+    },
     dependencies=[
         Depends(require_roles("admin", "rh")),
     ],
@@ -202,7 +298,30 @@ def update_employee(
 
 @router.delete(
     "/{employee_id}",
+    summary="Delete employee",
+    description="""
+Permanently deletes an employee.
+
+Allowed roles:
+
+- `admin`
+- `rh`
+""",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        204: {
+            "description": "Employee deleted successfully.",
+        },
+        401: {
+            "description": "Authentication required.",
+        },
+        403: {
+            "description": "Insufficient permissions.",
+        },
+        404: {
+            "description": "Employee not found.",
+        },
+    },
     dependencies=[
         Depends(require_roles("admin", "rh")),
     ],

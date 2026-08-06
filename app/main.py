@@ -21,7 +21,33 @@ from app.core.logging_config import configure_logging
 
 configure_logging()
 app = FastAPI(
-    title=settings.app_name,
+    title="RH System API",
+    version="0.3.0",
+    summary="Human Resources Management API",
+    description="""
+REST API para gerenciamento de departamentos,
+funcionários e usuários.
+
+Principais funcionalidades:
+
+- Autenticação JWT
+- Controle de acesso por papéis (RBAC)
+- CRUD de departamentos
+- CRUD de funcionários
+- Gerenciamento de usuários
+- Paginação
+- Filtros
+- Ordenação
+- Request ID
+- Logging estruturado
+""",
+    contact={
+        "name": "Agnaldo Silva",
+        "url": "https://github.com/agnaldo-developer",
+    },
+    license_info={
+        "name": "MIT",
+    },
 )
 app.add_middleware(RequestContextMiddleware)
 
