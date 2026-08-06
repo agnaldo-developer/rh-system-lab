@@ -1,17 +1,39 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import asc, desc, select
-from sqlalchemy.exc import IntegrityError
+from fastapi import (
+    APIRouter,
+    Depends,
+    Query,
+    Response,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user,
+    require_roles,
+)
 from app.models.department import Department
 from app.schemas.department import (
     DepartmentCreate,
     DepartmentResponse,
     DepartmentUpdate,
+)
+from app.services.department_service import (
+    create_department as create_department_service,
+)
+from app.services.department_service import (
+    delete_department as delete_department_service,
+)
+from app.services.department_service import (
+    get_department_or_404,
+)
+from app.services.department_service import (
+    list_departments as list_departments_service,
+)
+from app.services.department_service import (
+    update_department as update_department_service,
 )
 
 
@@ -24,51 +46,22 @@ router = APIRouter(
 DatabaseSession = Annotated[Session, Depends(get_db)]
 
 
-def get_department_or_404(
-    department_id: int,
-    db: Session,
-) -> Department:
-    department = db.get(Department, department_id)
-
-    if department is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Department not found.",
-        )
-
-    return department
-
-
 @router.post(
     "",
     response_model=DepartmentResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[
-    Depends(require_roles("admin", "rh")),
-],
+        Depends(require_roles("admin", "rh")),
+    ],
 )
 def create_department(
     department_data: DepartmentCreate,
     db: DatabaseSession,
 ) -> Department:
-    department = Department(
-        name=department_data.name,
-        description=department_data.description,
+    return create_department_service(
+        db=db,
+        department_data=department_data,
     )
-    db.add(department)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A department with this name already exists.",
-        )
-
-    db.refresh(department)
-
-    return department
 
 
 @router.get(
@@ -116,46 +109,31 @@ def list_departments(
         ),
     ] = "asc",
 ) -> list[Department]:
-    statement = select(Department)
-
-    if name is not None:
-        statement = statement.where(
-            Department.name.ilike(f"%{name}%")
-        )
-
-    sort_columns = {
-        "id": Department.id,
-        "name": Department.name,
-        "created_at": Department.created_at,
-        "updated_at": Department.updated_at,
-    }
-
-    sort_column = sort_columns[sort_by]
-
-    if order == "desc":
-        statement = statement.order_by(desc(sort_column))
-    else:
-        statement = statement.order_by(asc(sort_column))
-
-    statement = statement.offset(skip).limit(limit)
-
-    departments = db.scalars(statement).all()
-
-    return list(departments)
+    return list_departments_service(
+        db=db,
+        skip=skip,
+        limit=limit,
+        name=name,
+        sort_by=sort_by,
+        order=order,
+    )
 
 
 @router.get(
     "/{department_id}",
     response_model=DepartmentResponse,
     dependencies=[
-    Depends(get_current_user),
-],
+        Depends(get_current_user),
+    ],
 )
 def get_department(
     department_id: int,
     db: DatabaseSession,
 ) -> Department:
-    return get_department_or_404(department_id, db)
+    return get_department_or_404(
+        db=db,
+        department_id=department_id,
+    )
 
 
 @router.patch(
@@ -163,49 +141,46 @@ def get_department(
     response_model=DepartmentResponse,
     dependencies=[
         Depends(require_roles("admin", "rh")),
-],
+    ],
 )
 def update_department(
     department_id: int,
     department_data: DepartmentUpdate,
     db: DatabaseSession,
 ) -> Department:
-    department = get_department_or_404(department_id, db)
+    department = get_department_or_404(
+        db=db,
+        department_id=department_id,
+    )
 
-    update_data = department_data.model_dump(exclude_unset=True)
-
-    for field, value in update_data.items():
-        setattr(department, field, value)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A department with this name already exists.",
-        )
-
-    db.refresh(department)
-
-    return department
+    return update_department_service(
+        db=db,
+        department=department,
+        department_data=department_data,
+    )
 
 
 @router.delete(
     "/{department_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[
-    Depends(require_roles("admin", "rh")),
-],
+        Depends(require_roles("admin", "rh")),
+    ],
 )
 def delete_department(
     department_id: int,
     db: DatabaseSession,
 ) -> Response:
-    department = get_department_or_404(department_id, db)
+    department = get_department_or_404(
+        db=db,
+        department_id=department_id,
+    )
 
-    db.delete(department)
-    db.commit()
+    delete_department_service(
+        db=db,
+        department=department,
+    )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )

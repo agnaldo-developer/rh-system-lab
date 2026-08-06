@@ -1,19 +1,39 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import asc, desc, select
-from sqlalchemy.exc import IntegrityError
+from fastapi import (
+    APIRouter,
+    Depends,
+    Query,
+    Response,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_roles
-from app.models.department import Department
+from app.core.dependencies import (
+    get_current_user,
+    require_roles,
+)
 from app.models.employee import Employee
 from app.schemas.employee import (
     EmployeeCreate,
     EmployeeResponse,
     EmployeeUpdate,
 )
+from app.services.employee_service import (
+    create_employee as create_employee_service,
+)
+from app.services.employee_service import (
+    delete_employee as delete_employee_service,
+)
+from app.services.employee_service import get_employee_or_404
+from app.services.employee_service import (
+    list_employees as list_employees_service,
+)
+from app.services.employee_service import (
+    update_employee as update_employee_service,
+)
+
 
 router = APIRouter(
     prefix="/employees",
@@ -22,34 +42,6 @@ router = APIRouter(
 
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
-
-
-def get_employee_or_404(
-    employee_id: int,
-    db: Session,
-) -> Employee:
-    employee = db.get(Employee, employee_id)
-
-    if employee is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee not found.",
-        )
-
-    return employee
-
-
-def validate_department(
-    department_id: int,
-    db: Session,
-) -> None:
-    department = db.get(Department, department_id)
-
-    if department is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Department not found.",
-        )
 
 
 @router.post(
@@ -64,49 +56,12 @@ def create_employee(
     employee_data: EmployeeCreate,
     db: DatabaseSession,
 ) -> Employee:
-    validate_department(employee_data.department_id, db)
-
-    employee = Employee(
-        first_name=employee_data.first_name,
-        last_name=employee_data.last_name,
-        email=employee_data.email,
-        phone=employee_data.phone,
-        document=employee_data.document,
-        hire_date=employee_data.hire_date,
-        salary=employee_data.salary,
-        department_id=employee_data.department_id,
+    return create_employee_service(
+        db=db,
+        employee_data=employee_data,
     )
 
-    db.add(employee)
 
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An employee with this email or document already exists.",
-        )
-
-    db.refresh(employee)
-
-    return employee
-
-
-
-@router.get(
-    "/{employee_id}",
-    response_model=EmployeeResponse,
-    dependencies=[
-        Depends(get_current_user),
-    ],
-)
-def get_employee(
-    employee_id: int,
-    db: DatabaseSession,
-) -> Employee:
-    return get_employee_or_404(employee_id, db)
 @router.get(
     "",
     response_model=list[EmployeeResponse],
@@ -190,56 +145,36 @@ def list_employees(
         ),
     ] = "asc",
 ) -> list[Employee]:
-    statement = select(Employee)
+    return list_employees_service(
+        db=db,
+        skip=skip,
+        limit=limit,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        department_id=department_id,
+        is_active=is_active,
+        sort_by=sort_by,
+        order=order,
+    )
 
-    if first_name is not None:
-        statement = statement.where(
-            Employee.first_name.ilike(f"%{first_name}%")
-        )
 
-    if last_name is not None:
-        statement = statement.where(
-            Employee.last_name.ilike(f"%{last_name}%")
-        )
+@router.get(
+    "/{employee_id}",
+    response_model=EmployeeResponse,
+    dependencies=[
+        Depends(get_current_user),
+    ],
+)
+def get_employee(
+    employee_id: int,
+    db: DatabaseSession,
+) -> Employee:
+    return get_employee_or_404(
+        db=db,
+        employee_id=employee_id,
+    )
 
-    if email is not None:
-        statement = statement.where(
-            Employee.email.ilike(f"%{email}%")
-        )
-
-    if department_id is not None:
-        statement = statement.where(
-            Employee.department_id == department_id
-        )
-
-    if is_active is not None:
-        statement = statement.where(
-            Employee.is_active == is_active
-        )
-
-    sort_columns = {
-        "id": Employee.id,
-        "first_name": Employee.first_name,
-        "last_name": Employee.last_name,
-        "email": Employee.email,
-        "hire_date": Employee.hire_date,
-        "salary": Employee.salary,
-        "created_at": Employee.created_at,
-        "updated_at": Employee.updated_at,
-    }
-
-    sort_column = sort_columns[sort_by]
-
-    if order == "desc":
-        statement = statement.order_by(desc(sort_column))
-    else:
-        statement = statement.order_by(asc(sort_column))
-
-    statement = statement.offset(skip).limit(limit)
-
-    employees = db.scalars(statement).all()
-
-    return list(employees)
 
 @router.patch(
     "/{employee_id}",
@@ -253,29 +188,16 @@ def update_employee(
     employee_data: EmployeeUpdate,
     db: DatabaseSession,
 ) -> Employee:
-    employee = get_employee_or_404(employee_id, db)
+    employee = get_employee_or_404(
+        db=db,
+        employee_id=employee_id,
+    )
 
-    update_data = employee_data.model_dump(exclude_unset=True)
-
-    if "department_id" in update_data:
-        validate_department(update_data["department_id"], db)
-
-    for field, value in update_data.items():
-        setattr(employee, field, value)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An employee with this email or document already exists.",
-        )
-
-    db.refresh(employee)
-
-    return employee
+    return update_employee_service(
+        db=db,
+        employee=employee,
+        employee_data=employee_data,
+    )
 
 
 @router.delete(
@@ -289,9 +211,16 @@ def delete_employee(
     employee_id: int,
     db: DatabaseSession,
 ) -> Response:
-    employee = get_employee_or_404(employee_id, db)
+    employee = get_employee_or_404(
+        db=db,
+        employee_id=employee_id,
+    )
 
-    db.delete(employee)
-    db.commit()
+    delete_employee_service(
+        db=db,
+        employee=employee,
+    )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
