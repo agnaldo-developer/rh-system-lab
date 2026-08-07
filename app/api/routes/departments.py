@@ -35,7 +35,16 @@ from app.services.department_service import (
 from app.services.department_service import (
     update_department as update_department_service,
 )
-
+from fastapi import (
+    APIRouter,
+    Depends,
+    Query,
+    Request,
+    Response,
+    status,
+)
+from app.models.user import User
+from app.services.audit_service import create_audit_log
 
 router = APIRouter(
     prefix="/departments",
@@ -76,20 +85,48 @@ Allowed roles:
             "description": "Validation error.",
         },
     },
-    dependencies=[
-        Depends(require_roles("admin", "rh")),
-    ],
 )
 def create_department(
+    request: Request,
     department_data: DepartmentCreate,
     db: DatabaseSession,
+    current_user: User = Depends(
+        require_roles("admin", "rh")
+    ),
 ) -> Department:
-    return create_department_service(
-        db=db,
-        department_data=department_data,
-    )
+    try:
+        department = create_department_service(
+            db=db,
+            department_data=department_data,
+            commit=False,
+        )
 
+        create_audit_log(
+            db,
+            user_id=current_user.id,
+            action="CREATE",
+            entity_type="department",
+            entity_id=department.id,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            details={
+                "name": department.name,
+                "description": department.description,
+            },
+            commit=False,
+        )
 
+        db.commit()
+        db.refresh(department)
+
+        return department
+
+    except Exception:
+        db.rollback()
+        raise
 @router.get(
     "",
     summary="List departments",
@@ -228,26 +265,65 @@ Allowed roles:
             "description": "Validation error.",
         },
     },
-    dependencies=[
-        Depends(require_roles("admin", "rh")),
-    ],
 )
 def update_department(
+    request: Request,
     department_id: int,
     department_data: DepartmentUpdate,
     db: DatabaseSession,
+    current_user: User = Depends(
+        require_roles("admin", "rh")
+    ),
 ) -> Department:
     department = get_department_or_404(
         db=db,
         department_id=department_id,
     )
 
-    return update_department_service(
-        db=db,
-        department=department,
-        department_data=department_data,
+    update_data = department_data.model_dump(
+        exclude_unset=True,
     )
 
+    previous_values = {
+        field: getattr(department, field)
+        for field in update_data
+    }
+
+    try:
+        department = update_department_service(
+            db=db,
+            department=department,
+            department_data=department_data,
+            commit=False,
+        )
+
+        create_audit_log(
+            db,
+            user_id=current_user.id,
+            action="UPDATE",
+            entity_type="department",
+            entity_id=department.id,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            details={
+                "changed_fields": list(update_data.keys()),
+                "previous_values": previous_values,
+                "new_values": update_data,
+            },
+            commit=False,
+        )
+
+        db.commit()
+        db.refresh(department)
+
+        return department
+
+    except Exception:
+        db.rollback()
+        raise
 
 @router.delete(
     "/{department_id}",
@@ -275,24 +351,53 @@ Allowed roles:
             "description": "Department not found.",
         },
     },
-    dependencies=[
-        Depends(require_roles("admin", "rh")),
-    ],
 )
 def delete_department(
+    request: Request,
     department_id: int,
     db: DatabaseSession,
+    current_user: User = Depends(
+        require_roles("admin", "rh")
+    ),
 ) -> Response:
     department = get_department_or_404(
         db=db,
         department_id=department_id,
     )
 
-    delete_department_service(
-        db=db,
-        department=department,
-    )
+    deleted_department = {
+        "name": department.name,
+        "description": department.description,
+    }
 
-    return Response(
-        status_code=status.HTTP_204_NO_CONTENT,
-    )
+    try:
+        delete_department_service(
+            db=db,
+            department=department,
+            commit=False,
+        )
+
+        create_audit_log(
+            db,
+            user_id=current_user.id,
+            action="DELETE",
+            entity_type="department",
+            entity_id=department_id,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            details=deleted_department,
+            commit=False,
+        )
+
+        db.commit()
+
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+
+    except Exception:
+        db.rollback()
+        raise

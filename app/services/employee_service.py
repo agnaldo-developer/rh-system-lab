@@ -116,9 +116,13 @@ def list_employees(
     sort_column = sort_columns[sort_by]
 
     if order == "desc":
-        statement = statement.order_by(desc(sort_column))
+        statement = statement.order_by(
+            desc(sort_column)
+        )
     else:
-        statement = statement.order_by(asc(sort_column))
+        statement = statement.order_by(
+            asc(sort_column)
+        )
 
     statement = statement.offset(skip).limit(limit)
 
@@ -130,6 +134,8 @@ def list_employees(
 def create_employee(
     db: Session,
     employee_data: EmployeeCreate,
+    *,
+    commit: bool = True,
 ) -> Employee:
     validate_department(
         db=db,
@@ -150,7 +156,12 @@ def create_employee(
     db.add(employee)
 
     try:
-        db.commit()
+        if commit:
+            db.commit()
+            db.refresh(employee)
+        else:
+            db.flush()
+
     except IntegrityError as exc:
         db.rollback()
 
@@ -162,8 +173,6 @@ def create_employee(
             ),
         ) from exc
 
-    db.refresh(employee)
-
     return employee
 
 
@@ -171,6 +180,8 @@ def update_employee(
     db: Session,
     employee: Employee,
     employee_data: EmployeeUpdate,
+    *,
+    commit: bool = True,
 ) -> Employee:
     update_data = employee_data.model_dump(
         exclude_unset=True,
@@ -186,7 +197,12 @@ def update_employee(
         setattr(employee, field, value)
 
     try:
-        db.commit()
+        if commit:
+            db.commit()
+            db.refresh(employee)
+        else:
+            db.flush()
+
     except IntegrityError as exc:
         db.rollback()
 
@@ -198,14 +214,18 @@ def update_employee(
             ),
         ) from exc
 
-    db.refresh(employee)
-
     return employee
 
 
 def delete_employee(
     db: Session,
     employee: Employee,
+    *,
+    commit: bool = True,
 ) -> None:
     db.delete(employee)
-    db.commit()
+
+    if commit:
+        db.commit()
+    else:
+        db.flush()

@@ -142,8 +142,15 @@ def viewer_user() -> User:
         email="viewer@test.com",
         role="viewer",
     )
-
-
+@pytest.fixture()
+def inactive_user() -> User:
+    return create_test_user(
+        name="Usuário Inativo Teste",
+        email="inactive@test.com",
+        role="viewer",
+        password="SenhaInativa123",
+        is_active=False,
+    )
 @pytest.fixture()
 def admin_headers(
     admin_user: User,

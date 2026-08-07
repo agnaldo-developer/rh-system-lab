@@ -87,6 +87,8 @@ def list_departments(
 def create_department(
     db: Session,
     department_data: DepartmentCreate,
+    *,
+    commit: bool = True,
 ) -> Department:
     department = Department(
         name=department_data.name,
@@ -96,7 +98,11 @@ def create_department(
     db.add(department)
 
     try:
-        db.commit()
+        if commit:
+            db.commit()
+            db.refresh(department)
+        else:
+            db.flush()
     except IntegrityError as exc:
         db.rollback()
 
@@ -105,15 +111,14 @@ def create_department(
             detail="A department with this name already exists.",
         ) from exc
 
-    db.refresh(department)
-
     return department
-
 
 def update_department(
     db: Session,
     department: Department,
     department_data: DepartmentUpdate,
+    *,
+    commit: bool = True,
 ) -> Department:
     update_data = department_data.model_dump(
         exclude_unset=True,
@@ -123,7 +128,11 @@ def update_department(
         setattr(department, field, value)
 
     try:
-        db.commit()
+        if commit:
+            db.commit()
+            db.refresh(department)
+        else:
+            db.flush()
     except IntegrityError as exc:
         db.rollback()
 
@@ -132,14 +141,16 @@ def update_department(
             detail="A department with this name already exists.",
         ) from exc
 
-    db.refresh(department)
-
     return department
-
-
 def delete_department(
     db: Session,
     department: Department,
+    *,
+    commit: bool = True,
 ) -> None:
     db.delete(department)
-    db.commit()
+
+    if commit:
+        db.commit()
+    else:
+        db.flush()

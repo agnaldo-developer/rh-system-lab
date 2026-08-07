@@ -4,11 +4,13 @@ from fastapi import (
     APIRouter,
     Depends,
     Query,
+    Request,
     Response,
     status,
 )
 from sqlalchemy.orm import Session
-
+from app.models.user import User
+from app.services.audit_service import create_audit_log
 from app.core.database import get_db
 from app.core.dependencies import (
     get_current_user,
@@ -77,20 +79,53 @@ Allowed roles:
             "description": "Validation error.",
         },
     },
-    dependencies=[
-        Depends(require_roles("admin", "rh")),
-    ],
 )
 def create_employee(
+    request: Request,
     employee_data: EmployeeCreate,
     db: DatabaseSession,
+    current_user: User = Depends(
+        require_roles("admin", "rh")
+    ),
 ) -> Employee:
-    return create_employee_service(
-        db=db,
-        employee_data=employee_data,
-    )
+    try:
+        employee = create_employee_service(
+            db=db,
+            employee_data=employee_data,
+            commit=False,
+        )
 
+        create_audit_log(
+            db,
+            user_id=current_user.id,
+            action="CREATE",
+            entity_type="employee",
+            entity_id=employee.id,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            details={
+                "first_name": employee.first_name,
+                "last_name": employee.last_name,
+                "email": employee.email,
+                "document": employee.document,
+                "department_id": employee.department_id,
+                "hire_date": employee.hire_date,
+                "salary": employee.salary,
+            },
+            commit=False,
+        )
 
+        db.commit()
+        db.refresh(employee)
+
+        return employee
+
+    except Exception:
+        db.rollback()
+        raise
 @router.get(
     "",
     summary="List employees",
@@ -275,27 +310,65 @@ Allowed roles:
             "description": "Validation error.",
         },
     },
-    dependencies=[
-        Depends(require_roles("admin", "rh")),
-    ],
 )
 def update_employee(
+    request: Request,
     employee_id: int,
     employee_data: EmployeeUpdate,
     db: DatabaseSession,
+    current_user: User = Depends(
+        require_roles("admin", "rh")
+    ),
 ) -> Employee:
     employee = get_employee_or_404(
         db=db,
         employee_id=employee_id,
     )
 
-    return update_employee_service(
-        db=db,
-        employee=employee,
-        employee_data=employee_data,
+    update_data = employee_data.model_dump(
+        exclude_unset=True,
     )
 
+    previous_values = {
+        field: getattr(employee, field)
+        for field in update_data
+    }
 
+    try:
+        employee = update_employee_service(
+            db=db,
+            employee=employee,
+            employee_data=employee_data,
+            commit=False,
+        )
+
+        create_audit_log(
+            db,
+            user_id=current_user.id,
+            action="UPDATE",
+            entity_type="employee",
+            entity_id=employee.id,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            details={
+                "changed_fields": list(update_data.keys()),
+                "previous_values": previous_values,
+                "new_values": update_data,
+            },
+            commit=False,
+        )
+
+        db.commit()
+        db.refresh(employee)
+
+        return employee
+
+    except Exception:
+        db.rollback()
+        raise
 @router.delete(
     "/{employee_id}",
     summary="Delete employee",
@@ -322,24 +395,56 @@ Allowed roles:
             "description": "Employee not found.",
         },
     },
-    dependencies=[
-        Depends(require_roles("admin", "rh")),
-    ],
 )
 def delete_employee(
+    request: Request,
     employee_id: int,
     db: DatabaseSession,
+    current_user: User = Depends(
+        require_roles("admin", "rh")
+    ),
 ) -> Response:
     employee = get_employee_or_404(
         db=db,
         employee_id=employee_id,
     )
 
-    delete_employee_service(
-        db=db,
-        employee=employee,
-    )
+    deleted_employee = {
+        "first_name": employee.first_name,
+        "last_name": employee.last_name,
+        "email": employee.email,
+        "document": employee.document,
+        "department_id": employee.department_id,
+    }
 
-    return Response(
-        status_code=status.HTTP_204_NO_CONTENT,
-    )
+    try:
+        delete_employee_service(
+            db=db,
+            employee=employee,
+            commit=False,
+        )
+
+        create_audit_log(
+            db,
+            user_id=current_user.id,
+            action="DELETE",
+            entity_type="employee",
+            entity_id=employee_id,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            details=deleted_employee,
+            commit=False,
+        )
+
+        db.commit()
+
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+
+    except Exception:
+        db.rollback()
+        raise
